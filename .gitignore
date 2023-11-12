@@ -1,6 +1,2 @@
 .vscode
-
-volumes/file/*
-volumes/logs/*
-
 stdout
