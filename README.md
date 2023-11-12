@@ -36,9 +36,61 @@ The following command have to be executed on the container's terminal
 
 * While invoking the `vault login command` a token is required. That token is supplied by vault after the call of the `vault operator init` command after the list of unseal keys. Look for a line starting with _Initial Root Token_.
 
-  **e.g.:** `Initial Root Token: hvs.DZcQGslNrf2fWMXBnNP7UYcW`
+  **e.g.:** 
+  ```sh
+  Initial Root Token: hvs.DZcQGslNrf2fWMXBnNP7UYcW
+  ```
 
 ## Original article link
 
 The entire process is well explained on this page: 
 [Setup Hashicorp Vault Server on Docker and a Getting Started CLI Guide](https://blog.ruanbekker.com/blog/2019/05/06/setup-hashicorp-vault-server-on-docker-and-cli-guide/)
+
+## Jenkins integration
+
+### Enable AppRole and the kv-v2 engine
+
+```sh
+vault auth enable approle
+vault secrets enable kv-v2
+vault kv enable-versioning secret/
+```
+
+### Create a policy for your approle: KV Secrets Engine — Version 2
+
+```sh
+tee jenkins-policy.hcl << EOF
+path "secret/data/jenkins/*" {
+    capabilities = [ "read" ]
+}
+EOF
+
+vault policy write jenkins jenkins-policy.hcl
+
+vault write auth/approle/role/jenkins token_policies="jenkins" token_ttl=1h token_max_ttl=4h
+```
+
+### Get RoleID and SecretID
+
+```sh
+vault read auth/approle/role/jenkins/role-id
+vault write -f auth/approle/role/jenkins/secret-id
+```
+
+### Create github secret with 3 keys to read in jenkins pipeline
+
+```sh
+tee github.json << EOF
+{
+	"private-token": "76358746321876543",
+	"public-token": "jhflkweb8y7432",
+	"api-key": "80493286nfbds43"
+}
+EOF
+
+vault kv put secret/jenkins/github @github.json
+```
+
+### Read vault’s secrets from Jenkins declarative pipeline
+
+The rest of the process is to be handled on Jenkins as described on this [page](https://codeburst.io/read-vaults-secrets-from-jenkin-s-declarative-pipeline-50a690659d6).
